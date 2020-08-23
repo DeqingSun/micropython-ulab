@@ -157,11 +157,29 @@ static mp_obj_t linalg_det(mp_obj_t oin) {
         tmp[i] = ndarray_get_float_value(in->array->items, in->array->typecode, i);
     }
     mp_float_t c;
-    for(size_t m=0; m < in->m-1; m++){
+    
+    //make sure no zero on diagonal. Perfect row swapping is complicated, just add another row here.
+    for(size_t m=0; m < in->m; m++){
         if(MICROPY_FLOAT_C_FUN(fabs)(tmp[m*(in->n+1)]) < epsilon) {
-            m_del(mp_float_t, tmp, in->n*in->n);
-            return mp_obj_new_float(0.0);
+            //found zero on diagonal, grab another non-zero row and add here
+            size_t m1=0;
+            for(; m1 < in->m; m1++){
+                if (m==m1) continue;
+                if ( !(MICROPY_FLOAT_C_FUN(fabs)(tmp[m1*(in->n)+m]) < epsilon) ){
+                    for(size_t m2=0; m2 < in->n; m2++){
+                        tmp[m*(in->n)+m2]+=tmp[m1*(in->n)+m2];
+                    }
+                    break;
+                }
+            }
+            if (m1 >= in->m){
+                m_del(mp_float_t, tmp, in->n*in->n);
+                return mp_obj_new_float(0.0);
+            }
         }
+    }
+    
+    for(size_t m=0; m < in->m-1; m++){
         for(size_t n=0; n < in->n; n++){
             if(m != n) {
                 c = tmp[in->n*n+m] / tmp[m*(in->n+1)];
